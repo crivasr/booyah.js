@@ -177,7 +177,6 @@ class Client extends EventEmiter {
 		};
 		this.device_id = uuidv1();
 		this.connections = {};
-		this.testFunction();
 	}
 
 	sendMessage(channel, message) {
