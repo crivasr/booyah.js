@@ -2,6 +2,40 @@
 import "events";
 import EventEmitter from "events";
 
+export class Connection {
+	public constructor(channel_id: uid, parent: Client);
+
+	public sendMessage(message: string): this;
+	public sendSticker(sticker_id: string | number): this;
+	public getUpdatedChannelInfo(): Promise<FullUser>;
+	public getViewersCount(): Promise<number>;
+	public getAudience(): Promise<{ audience: Array<ChatUser>; viewer_count: number; }>;
+	public punishUser( method: "POST" | "DELETE", uid: string | number, nickname: string, type: 0 | 1, reason?: string ): this;
+	public muteUser(uid: string | number, nickname: string);
+	public banUser(uid: string | number, nickname: string, reason?: string);
+	public pardonUser(uid: string | number, nickname: string);
+}
+
+export class Client extends EventEmitter {
+	public constructor(session_key: string, user_id: string | number);
+	
+	public connectChannels( channels: Array<string | number> ): Promise<Array<Connection>>;
+	public sendMessage( channel: string | number | Connection, message: string ): this;
+	public sendSticker( channel: string | number | Connection, sticker_id: string | number ): this;
+	public generateToken(): Promise<string>;
+
+	public session_key: string;
+	public user_id: string | number;
+	public headers: JSON;
+	public device_id: string;
+	public connections: Array<Connection>;
+
+	on( event: "message", listener: ( this: Client, msg: ChatMessage, context: FullUser, connection: Connection, self: Boolean ) => void ): this;
+	on( event: "connected", listener: (this: Client, context: FullUser) => void ): this;
+}
+
+declare function getUser(channel_id: number | string): Promise<FullUser> 
+
 export enum StreamingPlatform {
 	booyah = 0,
 	youtube = 1,
@@ -15,19 +49,80 @@ export type Chatroom = {
 };
 
 export type ChatMessage = {
-	clientId: string;
-	serverId: string;
-	platform: StreamingPlatform;
-	msgParam?: any;
-	user: {
-		nickname: string;
-		uid: string | number; // this uid can be third party uid, so it can be string and number
+	data: {
+		uid: string;
+		sticker_id: number;
+		srv_msg_id: string;
+		platform: StreamingPlatform;
+		msg: string;
+		msgParam?: any;
+		nickname: string,
+		msg: string;
+		badgeList: BadgeCode[],
+		clt_msg_id: string;
 	};
-	text: string;
-	badgeList: BadgeCode[];
-	eventType: number;
-	createdTime?: string;
+	eventType: MsgType;
+	isModerator: boolean,
+	isOwner: boolean,
+	createdTime?: string,
+	user: FullUser;
 };
+
+export type FullUser = {
+	channel_id: number | string;
+	alias?: string;
+	chatroomId: number | string;
+	description: string;
+	name: string;
+	playbackCnt: number;
+	isVerifiedStreamer: boolean;
+	isEnableVod: boolean; // channel flag: temporaryStoreVod || permanentStoreVod
+	isEnableDownloadVod: boolean;
+	isEnableLongClip: boolean;
+	isEnableLuckyDraw: boolean;
+	isStreaming: boolean;
+	isContentCreator: boolean;
+	lastGiftTime?: number;
+	shareUrl: string;
+	thumbnail?: string;
+	flag: number; // enableUploadVod = !!(flag & 512); enableHosting = !!(flag & 1024);
+	hostee?: ChannelHostee;
+	labelContent?: string;
+	labelName?: string;
+	socialLinks: SocialLink[];
+	uid: number;
+	nickname: string;
+	thumbnail: string;
+	followTime: number;
+	followerCount: number;
+	followingCount: number;
+	notification: 0 | 1;
+	nicknameNextUpdateTime: number;
+	clanId?: number;
+	gender: UserGender;
+	genderNextUpdateTime: number;
+	birthday: number;
+	age: number;
+	platform: LoginPlatform;
+};
+
+export enum LoginPlatform {
+	none = 0,
+	facebook = 3,
+	vk = 5,
+	line = 6,
+	google = 8,
+	apple = 10,
+	twitter = 11,
+}
+
+export enum UserGender {
+	NotSet = 0,
+	Male = 1,
+	Female = 2,
+	Others = 3,
+	KeepSecret = 4,
+}
 
 export type BlockedPhrase = {
 	id: number;
@@ -143,30 +238,3 @@ export enum DashboardMsgType {
 	systemMessage = 1,
 }
 
-export enum MuteTypes {
-	temporal = 0,
-	permanent = 1,
-}
-
-export type uid = string | number;
-
-export type uuid = string;
-
-export type token = string;
-
-export class Connection {
-	public constructor(channel_id: uid, parent: Client);
-}
-
-export class Client extends EventEmitter {
-	public constructor(session_key: string, user_id: uid);
-	public connectChannels(channels: Array<uid>);
-	public sendMessage(channel: uid | Connection, message: string);
-	public sendSticker(channel: uid | Connection, message: string);
-	public generateToken(): token;
-	public session_key: string;
-	public user_id: uid;
-	public headers: JSON;
-	public device_id: uuid;
-	public connections: Array<Connection>;
-}

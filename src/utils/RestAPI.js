@@ -4,20 +4,13 @@ const baseUrl = "https://booyah.live";
 async function apiv3(method, src, data = {}, headers, user_id) {
 	const url = `${baseUrl}/api/v3/${src}`;
 	const referrer = `${baseUrl}/channels/${user_id}`;
-	let params;
-	if (method == "GET") {
-		params = {
-			headers: headers,
-			referrer: referrer,
-			method: method,
-		};
-	} else {
-		params = {
-			headers: headers,
-			referrer: referrer,
-			body: JSON.stringify(data),
-			method: method,
-		};
+	const params = {
+		headers: headers,
+		referrer: referrer,
+		method: method,
+	};
+	if (method != "GET") {
+		params.body = JSON.stringify(data);
 	}
 	const response = await fetch(url, params);
 

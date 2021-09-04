@@ -1,19 +1,8 @@
 const WebSocket = require("ws");
 const { v1: uuidv1 } = require("uuid");
 const apiv3 = require("../utils/RestAPI");
+const {decodeBufferToJSON, getUser} = require("../utils/functions")
 const EventEmiter = require("events");
-
-function decodeBufferToJSON(buffer) {
-	const json = buffer.toString("utf8");
-	const jsonp = JSON.parse(json);
-	return jsonp;
-}
-
-async function getUser(channel_id) {
-	const json = await apiv3("GET", `channels/${channel_id}`);
-	const user = { ...json.channel, ...json.user };
-	return user;
-}
 
 class Connection {
 	constructor(channel_id, parent) {
@@ -24,8 +13,10 @@ class Connection {
 	}
 
 	sendMessage(message) {
+		if(message.length > 144) throw new Error("Message too long, must be 144 or fewer in length")
 		const json = { event: 0, data: { msg: message } };
 		this.webSocket.send(JSON.stringify(json));
+		return this;
 	}
 
 	sendSticker(sticker_id) {
@@ -34,20 +25,12 @@ class Connection {
 			data: { sticker_id: sticker_id },
 		};
 		this.webSocket.send(JSON.stringify(json));
+		return this;
 	}
 
 	async getUpdatedChannelInfo() {
-		const json = await apiv3(
-			"GET",
-			`channels/${this.channel_id}`,
-			{},
-			this.headers
-		);
-
-		if (json.message) throw new Error(json.message);
-		this.channel = { ...json.channel, ...json.user };
-
-		return this;
+		this.channel = await getUser(this.channel_id)
+		return this.channel;
 	}
 
 	async getViewersCount() {
@@ -80,7 +63,7 @@ class Connection {
 			nickname: nickname,
 			source: 0,
 			type: type,
-			uid: uid,
+			uid: uid.toString(),
 			message: reason,
 		};
 
@@ -126,7 +109,6 @@ class Connection {
 			this.parent.emit("connected", context);
 
 			setInterval(() => {
-				console.log("Heartbeat");
 				this.sendMessage("");
 			}, 60 * 1000); //heartbeat every minute to prevent disconnection to the webSocket
 		});
@@ -141,7 +123,8 @@ class Connection {
 
 		webSocket.on("message", (buffer) => {
 			const messages = decodeBufferToJSON(buffer);
-			messages.forEach((message) => {
+			messages.forEach(async (message) => {
+				const user = await getUser(message.data.uid)
 				const isOwner = message.data.badge_list.includes(201);
 
 				const isModerator = message.data.badge_list.includes(202) || isOwner;
@@ -151,6 +134,7 @@ class Connection {
 					event: message.event,
 					isModerator: isModerator,
 					isOwner: isOwner,
+					user: user
 				};
 
 				const self = message.data.uid == this.parent.user_id;
@@ -180,7 +164,7 @@ class Client extends EventEmiter {
 	}
 
 	sendMessage(channel, message) {
-		if (typeof channel == String || typeof channel == Number) {
+		if (typeof channel == "string" || typeof channel == "number") {
 			const connection = this.connections[channel];
 			if (!connection) throw new Error(`Not connected to channel ${channel}`);
 			connection.sendMessage(message);
@@ -206,11 +190,13 @@ class Client extends EventEmiter {
 	}
 
 	async connectChannels(channels) {
+		const connections = [];
 		channels.forEach((channel) => {
 			const connection = new Connection(channel, this);
 			this.connections[channel] = connection;
-			return connection;
+			connections.push(connection);
 		});
+		return connections;
 	}
 
 	async generateToken() {
@@ -227,8 +213,5 @@ class Client extends EventEmiter {
 	}
 }
 
-Booyah = {
-	Client: Client,
-	getUser: getUser,
-};
+
 module.exports = Client;
