@@ -5,16 +5,28 @@ import EventEmitter from "events";
 export class Connection {
 	public constructor(channel_id: uid, parent: Client);
 
-	public sendMessage(message: string): this;
-	public sendSticker(sticker_id: string | number): this;
 	public getUpdatedChannelInfo(): Promise<FullUser>;
 	public getViewersCount(): Promise<number>;
-	public getAudience(): Promise<{ audience: Array<ChatUser>; viewer_count: number; }>;
-	public punishUser( method: "POST" | "DELETE", uid: string | number, nickname: string, type: 0 | 1, reason?: string ): this;
-	public muteUser(uid: string | number, nickname: string): this;
-	public banUser(uid: string | number, nickname: string, reason?: string): this;
-	public pardonUser(uid: string | number, nickname: string): this;
+	public getAudience(): Promise<{
+		audience: Array<ChatUser>;
+		viewer_count: number;
+	}>;
 	public close(): this;
+	public getWsUrl(): string;
+
+	public sendMessage(message: string): this;
+	public sendSticker(sticker_id: string | number): this;
+	public punishUser(
+		method: "POST" | "DELETE",
+		uid: string | number,
+		nickname: string,
+		type: 0 | 1,
+		reason?: string
+	): this;
+	public muteUser(uid: string | number): this;
+	public banUser(uid: string | number, reason?: string): this;
+	public pardonUser(uid: string | number): this;
+
 	public channel_id: string | number;
 	public parent: Client;
 	public headers: JSON;
@@ -25,10 +37,18 @@ export class Connection {
 
 export class Client extends EventEmitter {
 	public constructor(session_key: string, user_id: string | number);
-	
-	public connectChannels( channels: Array<string | number> ): Promise<Array<Connection>>;
-	public sendMessage( channel: string | number | Connection, message: string ): this;
-	public sendSticker( channel: string | number | Connection, sticker_id: string | number ): this;
+
+	public connectChannels(
+		channels: Array<string | number>
+	): Promise<Array<Connection>>;
+	public sendMessage(
+		channel: string | number | Connection,
+		message: string
+	): this;
+	public sendSticker(
+		channel: string | number | Connection,
+		sticker_id: string | number
+	): this;
 	public generateToken(): Promise<string>;
 
 	public session_key: string;
@@ -37,11 +57,31 @@ export class Client extends EventEmitter {
 	public device_id: string;
 	public connections: Array<Connection>;
 
-	on( event: "message", listener: ( this: Client, msg: ChatMessage, context: FullUser, connection: Connection, self: Boolean ) => void ): this;
-	on( event: "connected", listener: (this: Client, context: FullUser) => void ): this;
+	on(
+		event: "close",
+		listener: (this: Client, context: FullUser, connection: Connection) => void
+	): this;
+	on(
+		event: "message",
+		listener: (
+			this: Client,
+			msg: ChatMessage,
+			context: FullUser,
+			connection: Connection,
+			self: Boolean
+		) => void
+	): this;
+	on(
+		event: "connected",
+		listener: (this: Client, context: FullUser, connection: Connection) => void
+	): this;
+	on(
+		event: "reconnection",
+		listener: (this: Client, context: FullUser, connection: Connection) => void
+	): this;
 }
 
-declare function getUser(channel_id: number | string): Promise<FullUser> 
+declare function getUser(channel_id: number | string): Promise<FullUser>;
 
 export enum StreamingPlatform {
 	booyah = 0,
@@ -49,10 +89,17 @@ export enum StreamingPlatform {
 	facebook = 3,
 }
 export type Chatroom = {
-	msgMode: Restriction;
-	chatInterval: SlowMode;
-	isDisableStickers: boolean;
 	uid: number;
+	notify: number;
+	chat_mode: Restriction;
+	chat_interval: SlowMode;
+	is_disable_stickers: boolean;
+	rule: string;
+	rule_update_time: number;
+	uid: number;
+	moderator_list: ChatUser[];
+	staff_list: ChatUser[];
+	hot_phrase_list: HotWord[];
 };
 
 export type ChatMessage = {
@@ -63,51 +110,53 @@ export type ChatMessage = {
 		platform: StreamingPlatform;
 		msg: string;
 		msgParam?: any;
-		nickname: string,
+		nickname: string;
 		msg: string;
-		badgeList: BadgeCode[],
+		badgeList: BadgeCode[];
 		clt_msg_id: string;
 	};
 	event: MsgType;
-	isModerator: boolean,
-	isOwner: boolean,
-	createdTime?: string,
+	isModerator: boolean;
+	isOwner: boolean;
+	createdTime?: string;
 	user: FullUser;
 };
-
+export type SocialLink = {
+	channel_id: number;
+	platform: string;
+	link: string;
+};
 export type FullUser = {
-	channel_id: number | string;
-	alias?: string;
-	chatroomId: number | string;
+	channel_id: number;
+	chatroom_id: number;
+	title: string;
+	streaming_lang: string;
 	description: string;
-	name: string;
-	playbackCnt: number;
-	isVerifiedStreamer: boolean;
-	isEnableVod: boolean; // channel flag: temporaryStoreVod || permanentStoreVod
-	isEnableDownloadVod: boolean;
-	isEnableLongClip: boolean;
-	isEnableLuckyDraw: boolean;
-	isStreaming: boolean;
-	isContentCreator: boolean;
-	lastGiftTime?: number;
-	shareUrl: string;
-	thumbnail?: string;
-	flag: number; // enableUploadVod = !!(flag & 512); enableHosting = !!(flag & 1024);
-	hostee?: ChannelHostee;
-	labelContent?: string;
-	labelName?: string;
-	socialLinks: SocialLink[];
+	flag: number;
+	offline_pic: string;
+	thumbnail: string;
+	create_time: number;
+	share_url: string;
+	is_streaming: boolean;
+	is_verified_streamer: boolean;
+	is_content_creator: boolean;
+	is_enable_vod: boolean;
+	is_enable_download_vod: boolean;
+	is_enable_long_clip: boolean;
+	is_enable_lucky_draw: boolean;
+	is_enable_vote: boolean;
+	social_links: SocialLink[];
 	uid: number;
 	nickname: string;
 	thumbnail: string;
-	followTime: number;
-	followerCount: number;
-	followingCount: number;
+	follow_time: number;
+	follower_count: number;
+	following_count: number;
 	notification: 0 | 1;
-	nicknameNextUpdateTime: number;
-	clanId?: number;
+	nickname_next_update_time: number;
+	clan_id?: number;
 	gender: UserGender;
-	genderNextUpdateTime: number;
+	gender_next_update_time: number;
 	birthday: number;
 	age: number;
 	platform: LoginPlatform;
@@ -139,12 +188,14 @@ export type BlockedPhrase = {
 export type HotWord = {
 	id: number;
 	phrase: string;
+	create_time: string;
 };
 
 export type ChatUser = {
 	nickName: string;
 	uid: number;
-	thumbnail: string;
+	thumbnail?: string;
+	create_time: number;
 };
 // see badge code definition here: http://test.connect.booyah.live:9510/swagger/index.html
 export enum BadgeCode {
@@ -244,4 +295,3 @@ export enum DashboardMsgType {
 	chatMessage = 0,
 	systemMessage = 1,
 }
-
