@@ -11,9 +11,16 @@ export class Connection {
 	public getViewersCount(): Promise<number>;
 	public getAudience(): Promise<{ audience: Array<ChatUser>; viewer_count: number; }>;
 	public punishUser( method: "POST" | "DELETE", uid: string | number, nickname: string, type: 0 | 1, reason?: string ): this;
-	public muteUser(uid: string | number, nickname: string);
-	public banUser(uid: string | number, nickname: string, reason?: string);
-	public pardonUser(uid: string | number, nickname: string);
+	public muteUser(uid: string | number, nickname: string): this;
+	public banUser(uid: string | number, nickname: string, reason?: string): this;
+	public pardonUser(uid: string | number, nickname: string): this;
+	public close(): this;
+	public channel_id: string | number;
+	public parent: Client;
+	public headers: JSON;
+	public anon: Boolean;
+	public reconnections: number;
+	public channel: FullUser;
 }
 
 export class Client extends EventEmitter {
@@ -61,7 +68,7 @@ export type ChatMessage = {
 		badgeList: BadgeCode[],
 		clt_msg_id: string;
 	};
-	eventType: MsgType;
+	event: MsgType;
 	isModerator: boolean,
 	isOwner: boolean,
 	createdTime?: string,

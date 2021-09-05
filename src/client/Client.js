@@ -9,10 +9,15 @@ class Connection {
 		this.channel_id = channel_id;
 		this.parent = parent;
 		this.headers = this.parent.headers;
+		this.anon = false
+		this.reconnections = 0
 		this.join();
 	}
-
+	heartbeat(){
+		this.webSocket.send(JSON.stringify({"msg":""}))
+	}
 	sendMessage(message) {
+		if(this.anon) throw new Error("Trying to send message on anonymous connection")
 		if(message.length > 144) throw new Error("Message too long, must be 144 or fewer in length")
 		const json = { event: 0, data: { msg: message } };
 		this.webSocket.send(JSON.stringify(json));
@@ -20,6 +25,7 @@ class Connection {
 	}
 
 	sendSticker(sticker_id) {
+		if(this.anon) throw new Error("Trying to send message on anonymous connection")
 		const json = {
 			event: 1,
 			data: { sticker_id: sticker_id },
@@ -95,21 +101,31 @@ class Connection {
 		return this;
 	}
 
-	async join() {
-		await this.getUpdatedChannelInfo();
-		this.token = await this.parent.generateToken();
+	close() {
+		this.webSocket.close()
+		return this
+	}
 
+	async join() {
+		if (!this.anon) {
+			await this.getUpdatedChannelInfo();
+			this.token = await this.parent.generateToken();
+		}
+		let url = `wss://chat.booyah.live:9511/ws/v2/chat/conns?room_id=${this.channel.chatroom_id}&uid=${this.parent.user_id || 0}&device_id=${this.parent.device_id}`
+		
+		if (!(this.parent.session_key && this.parent.user_id)) this.anon = true;
+		else {
+			if (!this.token) throw new Error("Invalid session_id or user_id");
+			url += `&token=${this.token}`;
+		}
+		const webSocket = new WebSocket(url);
 		const context = this.channel;
 
-		const webSocket = new WebSocket(
-			`wss://chat.booyah.live:9511/ws/v2/chat/conns?room_id=${this.channel.chatroom_id}&uid=${this.parent.user_id}&device_id=${this.parent.device_id}&token=${this.token}`
-		);
-
 		webSocket.on("open", () => {
-			this.parent.emit("connected", context);
-
-			setInterval(() => {
-				this.sendMessage("");
+			if (!this.reconnections) this.parent.emit("connected", context);
+		
+			this.hearbeatInterval = setInterval(() => {
+				this.heartbeat();
 			}, 60 * 1000); //heartbeat every minute to prevent disconnection to the webSocket
 		});
 
@@ -117,14 +133,18 @@ class Connection {
 			console.log(`Error from ${this.channel_id}: ${error}`);
 		});
 
-		webSocket.on("close", () => {
-			console.log(`Disconnected from ${this.channel_id}`);
+		webSocket.on("close", (code) => {
+			if (!this.reconnections)this.parent.emit("close", this);
+			clearInterval(this.hearbeatInterval);
+			
+			if (code == 1006) this.join()
+			this.reconnections++;			
 		});
 
 		webSocket.on("message", (buffer) => {
 			const messages = decodeBufferToJSON(buffer);
 			messages.forEach(async (message) => {
-				const user = await getUser(message.data.uid)
+				const user = message.data.uid ? await getUser(message.data.uid) : null
 				const isOwner = message.data.badge_list.includes(201);
 
 				const isModerator = message.data.badge_list.includes(202) || isOwner;
@@ -144,6 +164,7 @@ class Connection {
 		});
 
 		this.webSocket = webSocket;
+		await this.getUpdatedChannelInfo();
 		return this;
 	}
 }
@@ -208,7 +229,6 @@ class Client extends EventEmiter {
 			this.channel_id
 		);
 		const token = json.token;
-		if (!token) throw new Error("Invalid session_id or user_id");
 		return token;
 	}
 }
