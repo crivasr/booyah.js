@@ -1,8 +1,11 @@
 const apiv3 = require("../utils/RestAPI");
+const EventEmiter = require("events");
 
-class ApiController {
-	constructor(session_key, user_id) {
+class ApiController extends EventEmiter {
+	constructor(session_key, user_id, device_id) {
+		super();
 		this.user_id = user_id;
+		this.device_id = device_id;
 		const headers = {
 			"booyah-session-key": session_key,
 			"x-csrf-token": session_key,
@@ -18,58 +21,61 @@ class ApiController {
 		return user;
 	}
 
-	async getViewersCount(chatroom_id) {
+	async getAudience(channel_id) {
+		const user = await this.getUser(channel_id);
 		const json = await apiv3(
 			"GET",
-			`chatrooms/${chatroom_id}/audiences/count`,
-			{},
-			this.headers
-		);
-
-		return json.viewer_count || 0;
-	}
-
-	async getAudience(chatroom_id, channel_id) {
-		const viewers_count = await this.getViewersCount(chatroom_id);
-		const json = await apiv3(
-			"GET",
-			`chatrooms/${chatroom_id}/audiences?cursor=0&count=${viewers_count}`,
+			`chatrooms/${user.chatroom_id}/audiences?cursor=0&count=100000000`, //I suppose that no one is gonna have more than 100M viewers xD
 			{ channel_id: channel_id },
 			this.headers
 		);
 
 		const viewers = {
-			audience: json.audience_list,
-			viewer_count: viewers_count,
+			viewers: json.audience_list,
+			viewers_count: json.audience_list.length,
+			channel: user,
 		};
 
 		return viewers;
 	}
 
-	async punishUser(chatroom_id, uid, type, reason, method = "POST") {
-		const user = await this.getUser(uid);
+	async punishUser(channel_id, target_id, type = 0, reason, method = "POST") {
+		const target_user = await this.getUser(target_id);
+		const channel = await this.getUser(channel_id);
 
 		const body = {
-			nickname: user.nickname,
+			nickname: target_user.nickname,
 			source: 0,
 			type: type,
-			uid: uid.toString(),
+			uid: target_id.toString(),
 			message: reason,
 		};
 
-		apiv3(method, `chatrooms/${chatroom_id}/mutes`, body, this.headers);
+		apiv3(method, `chatrooms/${channel.chatroom_id}/mutes`, body, this.headers);
+		return { target: target_user, channel: channel };
 	}
 
-	async generateToken(device_id) {
+	async muteUser(channel_id, target_id) {
+		return await this.punishUser(channel_id, target_id);
+	}
+
+	async banUser(channel_id, target_id, reason) {
+		return await this.punishUser(channel_id, target_id, 1, reason);
+	}
+
+	async pardonUser(channel_id, target_id) {
+		return await this.punishUser(channel_id, target_id, 1, "", "DELETE");
+	}
+
+	async generateToken() {
 		const json = await apiv3(
 			"POST",
 			`users/${this.user_id}/chat-tokens`,
-			{ device_id: device_id },
+			{ device_id: this.device_id },
 			this.headers,
 			this.user_id
 		);
-		const token = json.token;
-		return token;
+		return json.token;
 	}
 }
 

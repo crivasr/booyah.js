@@ -19,8 +19,8 @@ async function apiv3(method, src, data = {}, headers, referrer_id) {
 
 	const json = await response.json();
 	if (json.code >= 300) {
-		console.log(json);
-		throw new Error(response.message);
+		const error = `${json.message} on ${src}`;
+		throw new Error(error);
 	}
 
 	return json;

@@ -2,30 +2,49 @@
 import "events";
 import EventEmitter from "events";
 
-export class Connection {
-	public constructor(channel_id: uid, parent: Client);
+export class ApiController extends EventEmitter {
+	public constructor(session_key: string, user_id: string, device_id: string);
 
-	public getUpdatedChannelInfo(): Promise<FullUser>;
-	public getViewersCount(): Promise<number>;
-	public getAudience(): Promise<{
-		audience: Array<ChatUser>;
-		viewer_count: number;
+	public getUser(channel_id: string | number): Promise<FullUser>;
+	public getAudience(channel_id: string | number): Promise<{
+		viewers: Array<ChatUser>;
+		viewers_count: number;
+		channel: FullUser;
 	}>;
+
+	public generateToken(): Promise<string>;
+
+	public punishUser(
+		channel_id: string | number,
+		target_id: string | number,
+		type: 0 | 1,
+		reason: string,
+		method: "POST" | "DELETE"
+	): Promise<{ target: FullUser; channel: FullUser }>;
+
+	public muteUser(
+		channel_id: string | number,
+		target_id: string | number
+	): Promise<{ target: FullUser; channel: FullUser }>;
+
+	public banUser(
+		channel_id: string | number,
+		target_id: string | number,
+		reason?: string
+	): Promise<{ target: FullUser; channel: FullUser }>;
+
+	public pardonUser(
+		channel_id: string | number,
+		target_id: string | number
+	): Promise<{ target: FullUser; channel: FullUser }>;
+}
+
+export class Connection extends ApiController {
+	public constructor(channel_id: uid, parent: Client);
 	public close(): this;
 	public getWsUrl(): string;
-
 	public sendMessage(message: string): this;
 	public sendSticker(sticker_id: string | number): this;
-	public punishUser(
-		method: "POST" | "DELETE",
-		uid: string | number,
-		nickname: string,
-		type: 0 | 1,
-		reason?: string
-	): this;
-	public muteUser(uid: string | number): this;
-	public banUser(uid: string | number, reason?: string): this;
-	public pardonUser(uid: string | number): this;
 
 	public channel_id: string | number;
 	public parent: Client;
@@ -34,8 +53,11 @@ export class Connection {
 	public reconnections: number;
 	public channel: FullUser;
 }
+export class AnonConnection extends Connection {
+	public constructor(channel_id: uid, parent: Client);
+}
 
-export class Client extends EventEmitter {
+export class Client extends ApiController {
 	public constructor(session_key: string, user_id: string | number);
 
 	public connectChannels(
@@ -49,7 +71,6 @@ export class Client extends EventEmitter {
 		channel: string | number | Connection,
 		sticker_id: string | number
 	): this;
-	public generateToken(): Promise<string>;
 
 	public session_key: string;
 	public user_id: string | number;
@@ -80,8 +101,6 @@ export class Client extends EventEmitter {
 		listener: (this: Client, context: FullUser, connection: Connection) => void
 	): this;
 }
-
-declare function getUser(channel_id: number | string): Promise<FullUser>;
 
 export enum StreamingPlatform {
 	booyah = 0,

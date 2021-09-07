@@ -1,41 +1,29 @@
 const { v1: uuidv1 } = require("uuid");
-const EventEmiter = require("events");
 const { Connection, AnonConnection } = require("../connection");
 const ApiController = require("../api/Controller");
 
-class Client extends EventEmiter {
+class Client extends ApiController {
 	constructor(session_key, user_id) {
-		super();
+		const device_id = uuidv1();
+		super(session_key, user_id, device_id);
+		this.session_key = session_key;
 		this.user_id = user_id;
-		this.device_id = uuidv1();
-		this.controller = new ApiController(session_key, this.user_id);
+		this.device_id = device_id;
 		this.connections = {};
 	}
 
 	sendMessage(channel, message) {
-		if (typeof channel == "string" || typeof channel == "number") {
-			const connection = this.connections[channel];
-			if (!connection) throw new Error(`Not connected to channel ${channel}`);
-			connection.sendMessage(message);
-			return this;
-		} else if (typeof channel == Connection) {
-			channel.sendMessage(message);
-			return this;
-		}
-		throw new Error("invalid channel");
+		const connection = this.connections[channel];
+		if (!connection) throw new Error(`Not connected to channel ${channel}`);
+		connection.sendMessage(message);
+		return connection;
 	}
 
 	sendSticker(channel, sticker_id) {
-		if (typeof channel == String || typeof channel == Number) {
-			const connection = this.connections[channel];
-			if (!connection) throw new Error(`Not connected to channel ${channel}`);
-			connection.sendSticker(sticker_id);
-			return this;
-		} else if (typeof channel == Connection) {
-			channel.sendSticker(sticker_id);
-			return this;
-		}
-		throw new Error("invalid channel");
+		const connection = this.connections[channel];
+		if (!connection) throw new Error(`Not connected to channel ${channel}`);
+		connection.sendSticker(sticker_id);
+		return connection;
 	}
 
 	async connectChannels(channels) {
@@ -63,11 +51,6 @@ class Client extends EventEmiter {
 			connections.push(connection);
 		});
 		return connections;
-	}
-
-	async generateToken() {
-		const token = await this.controller.generateToken(this.device_id);
-		return token;
 	}
 }
 

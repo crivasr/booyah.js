@@ -1,13 +1,14 @@
 const WebSocket = require("ws");
+const ApiController = require("../api/Controller");
 const { decodeBufferToJSON } = require("../utils/functions");
 
-class Connection {
+class Connection extends ApiController {
 	constructor(channel_id, parent) {
+		super(parent.session_key, parent.user_id, parent.device_id);
 		this.channel_id = channel_id;
 		this.parent = parent;
 		this.anon = false;
 		this.reconnections = 0;
-		this.controller = parent.controller;
 		this.join();
 	}
 
@@ -15,27 +16,9 @@ class Connection {
 		this.webSocket.send(JSON.stringify({ msg: "" }));
 	}
 
-	async getUpdatedChannelInfo() {
-		this.channel = await this.controller.getUser(this.channel_id);
-		return this.channel;
-	}
-
-	async getViewersCount() {
-		const response = await this.controller.getViewersCount(
-			this.channel.chatroom_id
-		);
-		return response;
-	}
-
-	async getAudience() {
-		const response = await this.controller.getAudience(
-			this.channel.chatroom_id,
-			this.channel_id
-		);
-		return response;
-	}
-
 	sendMessage(message) {
+		if (this.anon)
+			throw new Error("You can't send messages on an anonymous connection");
 		if (message.length > 144)
 			throw new Error("Message too long, must be 144 or fewer in length");
 		const json = { event: 0, data: { msg: message } };
@@ -44,6 +27,8 @@ class Connection {
 	}
 
 	sendSticker(sticker_id) {
+		if (this.anon)
+			throw new Error("You can't send stickers on an anonymous connection");
 		const json = {
 			event: 1,
 			data: { sticker_id: sticker_id },
@@ -52,37 +37,13 @@ class Connection {
 		return this;
 	}
 
-	punishUser(uid, type, reason, method = "POST") {
-		this.controller.punishUser(
-			this.channel.chatroom_id,
-			method,
-			uid,
-			type,
-			reason
-		);
-	}
-
-	muteUser(uid) {
-		this.punishUser("POST", uid, 0);
-		return this;
-	}
-
-	banUser(uid, reason) {
-		this.punishUser("POST", uid, 1, reason);
-		return this;
-	}
-
-	pardonUser(uid) {
-		this.punishUser("DELETE", uid, 1);
-		return this;
-	}
-
 	async getWsUrl() {
-		if (!this.channel) await this.getUpdatedChannelInfo();
+		if (!this.channel) this.channel = await this.getUser(this.channel_id);
 		this.token = await this.parent.generateToken();
-		if (!this.token) throw new Error("Invalid session_id or user_id");
 
+		if (!this.token) throw new Error("Invalid session_id or user_id");
 		const url = `wss://chat.booyah.live:9511/ws/v2/chat/conns?room_id=${this.channel.chatroom_id}&uid=${this.parent.user_id}&device_id=${this.parent.device_id}&token=${this.token}`;
+
 		return url;
 	}
 
@@ -101,7 +62,7 @@ class Connection {
 
 			this.hearbeatInterval = setInterval(() => {
 				this.heartbeat();
-			}, 60 * 1000); //heartbeat every minute to prevent disconnection to the webSocket
+			}, 60 * 1000); //send an empty message every minute to prevent disconnection to the webSocket
 		});
 
 		webSocket.on("error", (error) => {
@@ -122,12 +83,12 @@ class Connection {
 		});
 
 		webSocket.on("message", async (buffer) => {
-			await this.getUpdatedChannelInfo();
 			const messages = decodeBufferToJSON(buffer);
+
 			messages.forEach(async (message) => {
 				const user =
-					message.data.uid && message.data.plat == 0
-						? await this.controller.getUser(message.data.uid)
+					message.data.uid && (message.data.plat == 0 || message.event == 17)
+						? await this.getUser(message.data.uid)
 						: null;
 				const isOwner = message.data.badge_list.includes(201);
 
@@ -148,7 +109,6 @@ class Connection {
 		});
 
 		this.webSocket = webSocket;
-		await this.getUpdatedChannelInfo();
 		return this;
 	}
 }
