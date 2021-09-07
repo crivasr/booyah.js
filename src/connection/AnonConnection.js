@@ -1,18 +1,8 @@
 const Connection = require("./Connection");
 
-const RANDOM_KEY =
-	"MTYzMDg2MzQyN3xOd3dBTkVoVU5FNU1Va3RUUjFBMFF6TlVVRTAwUTBVMFIwaE1TRkpPTTFCWU1sVllSRXhITjBOVFVGTldSa3cwVWpaS1RWZFdWMUU9fEh45G-aYqqbVBJcG8GoUbdBvN9GZNGfVHKJUlMpzbQf";
-const RANDOM_HEADER = {
-	"booyah-session-key": RANDOM_KEY,
-	"x-csrf-token": RANDOM_KEY,
-	"content-type": "application/json",
-	cookie: `session_key=${RANDOM_KEY}`,
-};
-
 class AnonConnection extends Connection {
 	constructor(channel_id, parent) {
 		super(channel_id, parent);
-		this.headers = RANDOM_HEADER;
 		this.anon = true;
 	}
 

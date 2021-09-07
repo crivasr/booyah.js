@@ -1,5 +1,6 @@
-const {getUser} = require("./utils/functions")
+const { getUser } = require("./utils/functions");
 module.exports = {
-	Client: require("./client/Client"), 
-	getUser
+	Client: require("./client/Client"),
+	ApiController: require("./api/Controller"),
+	getUser,
 };
