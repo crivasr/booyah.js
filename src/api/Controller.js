@@ -77,6 +77,62 @@ class ApiController extends EventEmiter {
 		);
 		return json.token;
 	}
+
+	async getStream(channel_id) {
+		const response = await apiv3(
+			"GET",
+			`channels/${channel_id}/streams`,
+			{},
+			this.headers
+		);
+		return response;
+	}
+
+	async getVods(channel_id) {
+		const response = await apiv3(
+			"GET",
+			`playbacks?channel_id=${channel_id}&type=1&sort_method=1`,
+			{},
+			this.headers
+		);
+		return response;
+	}
+
+	async getUptime(channel_id) {
+		const stream = await this.getStream(channel_id);
+		const create_time = stream.create_time;
+
+		if (!create_time) return 0;
+		const now = Date.now() / 1000;
+		const uptime = now - parseInt(create_time);
+
+		return uptime;
+	}
+
+	async getMonthUptime(channel_id) {
+		const vods = await this.getVods(channel_id);
+		const uptime = await this.getUptime(channel_id);
+
+		let time = uptime || 0;
+		vods.forEach((vod) => {
+			const create_time = vod.playback.create_time_ms;
+			const date = new Date(create_time);
+			const now = new Date();
+
+			if (date.getMonth() == now.getMonth()) {
+				// sometimes during a stream, a portion of the current stream is added as a vod
+				// if the channel is live we check if the vod is older than the stream or not
+				// if its not older than the stream it means that its a portion of the current stream
+				// so we don't have to add him to the time counter
+				// uptime is in seconds and create_time in miliseconds, so we have to multiply the uptime
+				// by 1000
+				if (!uptime || create_time < now.getTime() - uptime * 1000)
+					time += vod.playback.duration;
+			}
+		});
+
+		return uptime;
+	}
 }
 
 module.exports = ApiController;

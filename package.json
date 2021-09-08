@@ -1,6 +1,6 @@
 {
 	"name": "booyah.js",
-	"version": "1.0.7",
+	"version": "1.0.8",
 	"description": "A simple library for interacting with the Booyah.live API",
 	"main": "./src/index.js",
 	"types": "./types/index.d.ts",
