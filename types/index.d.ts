@@ -143,7 +143,6 @@ export type ChatMessage = {
 	isModerator: boolean;
 	isOwner: boolean;
 	createdTime?: string;
-	user: FullUser;
 };
 export type SocialLink = {
 	channel_id: number;

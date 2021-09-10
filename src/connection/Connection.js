@@ -86,10 +86,6 @@ class Connection extends ApiController {
 			const messages = decodeBufferToJSON(buffer);
 
 			messages.forEach(async (message) => {
-				const user =
-					message.data.uid && (message.data.plat == 0 || message.event == 17)
-						? await this.getUser(message.data.uid)
-						: null;
 				const isOwner = message.data.badge_list.includes(201);
 
 				const isModerator = message.data.badge_list.includes(202) || isOwner;
@@ -99,7 +95,6 @@ class Connection extends ApiController {
 					event: message.event,
 					isModerator: isModerator,
 					isOwner: isOwner,
-					user: user,
 				};
 
 				const self = message.data.uid == this.parent.user_id;

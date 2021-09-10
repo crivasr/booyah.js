@@ -86,7 +86,7 @@ client.on("message", async (message, context, connection, self) => {
     const commandName = args.shift();
     
     if (commandName == "!say"){
-      connection.sendMessage(`${message.user.nickname} your said: ${args.join(" ")}`);
+      connection.sendMessage(`${message.data.nickname} your said: ${args.join(" ")}`);
     }
   }
 })
