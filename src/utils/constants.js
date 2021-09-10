@@ -5,6 +5,7 @@ const msgTypes = [
 	"length_limit",
 	"rate_limit",
 	"you_are_timeouted",
+	"you_are_banned",
 	"add_moderator",
 	"remove_moderator",
 	"timeout_user",
