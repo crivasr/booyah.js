@@ -1,4 +1,4 @@
 module.exports = {
 	Client: require("./client/Client"),
-	ApiController: require("./api/Controller"),
+	Constants: require("./utils/constants"),
 };

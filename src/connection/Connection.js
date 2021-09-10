@@ -1,6 +1,7 @@
 const WebSocket = require("ws");
 const ApiController = require("../api/Controller");
 const { decodeBufferToJSON } = require("../utils/functions");
+const {BadgeCode, msgTypes, maxMessageLength, sendMessageTypes} = require("../utils/constants");
 
 class Connection extends ApiController {
 	constructor(channel_id, parent) {
@@ -19,9 +20,9 @@ class Connection extends ApiController {
 	sendMessage(message) {
 		if (this.anon)
 			throw new Error("You can't send messages on an anonymous connection");
-		if (message.length > 144)
-			throw new Error("Message too long, must be 144 or fewer in length");
-		const json = { event: 0, data: { msg: message } };
+		if (message.length > maxMessageLength)
+			throw new Error(`Message too long, must be ${maxMessageLength} or fewer in length`);
+		const json = { event: sendMessageTypes.message, data: { msg: message } };
 		this.webSocket.send(JSON.stringify(json));
 		return this;
 	}
@@ -30,7 +31,7 @@ class Connection extends ApiController {
 		if (this.anon)
 			throw new Error("You can't send stickers on an anonymous connection");
 		const json = {
-			event: 1,
+			event: sendMessageTypes.sticker,
 			data: { sticker_id: sticker_id },
 		};
 		this.webSocket.send(JSON.stringify(json));
@@ -86,9 +87,9 @@ class Connection extends ApiController {
 			const messages = decodeBufferToJSON(buffer);
 
 			messages.forEach(async (message) => {
-				const isOwner = message.data.badge_list.includes(201);
+				const isOwner = message.data.badge_list.includes(BadgeCode.owner);
 
-				const isModerator = message.data.badge_list.includes(202) || isOwner;
+				const isModerator = message.data.badge_list.includes(BadgeCode.moderator) || isOwner;
 
 				const msg = {
 					data: message.data,
@@ -100,6 +101,7 @@ class Connection extends ApiController {
 				const self = message.data.uid == this.parent.user_id;
 
 				this.parent.emit("message", msg, this.channel, this, self);
+				this.parent.emit(msgTypes[message.event], msg, this.channel, this, self);
 			});
 		});
 

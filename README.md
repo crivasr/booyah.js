@@ -23,6 +23,7 @@ Then go to `Application > Cookies > https://booyah.live/` and search for `sessio
 Just copy that and replace `"YOUR_SESSION_KEY"` with that token.
 <br>
 `"YOUR_USER_ID"` is the id that shows when you got to your [studio](https://booyah.live/mystudio) under your name.
+
 ```js
 const { Client } = require("booyah.js");
 
@@ -31,24 +32,32 @@ const client = new Client("YOUR_SESSION_KEY", "YOUR_USER_ID");
 
 client.connectChannels(["CHANNEL_ID"]);
 
-client.on("message", async (message, context, connection, self) => {
+client.on("chat", async (message, context, connection, self) => {
   //ignore messages sended by the bot
   if (self) return;
   
-  // event type 0 is a chat message, 24 is a sticker, 15 a follow, etc...
-  // see the MsgType enum on types/index.d.ts for a full list
-  if (message.event == 0) {
-    const msg = message.data.msg;
-    const name = message.data.nickname;
-    
-    if (msg.toLowerCase() == "hi"){
-      connection.sendMessage(`Hello ${name}!`);
-      // you can also do:
-      // client.sendMessage(context.channel_id, `Hello ${name}!`);
-    }
+  const msg = message.data.msg;
+  const name = message.data.nickname;
+  
+  if (msg.toLowerCase() == "hi"){
+    connection.sendMessage(`Hello ${name}!`);
+    // you can also do:
+    // client.sendMessage(context.channel_id, `Hello ${name}!`);
   }
 });
+```
 
+an other way to get a chat message is this: 
+
+```js
+const { Client, Constants } = require("booyah.js");
+
+client.on("message", async (message, context, connection, self) => {
+  if (self) return;
+
+  if(Constants.msgTypes[message.event] != "chat") return;
+  // TODO
+});
 ```
 
 ## Anonymous connection
@@ -57,6 +66,7 @@ You can also connect to a chat without those credentials, you can get the messag
 <br>
 <br>
 Instead of 
+
 ```js
 const { Client } = require("booyah.js");
 
@@ -65,6 +75,7 @@ const client = new Client();
 client.connectChannels(["CHANNEL_ID"]);
 ```
 use 
+
 ```js
 const { Client } = require("booyah.js");
 
@@ -77,17 +88,15 @@ If you use the other function it would still work but you'll have this alert whe
 ## Simple command handler
 
 ```js
-client.on("message", async (message, context, connection, self) => {
+client.on("chat", async (message, context, connection, self) => {
   if (self) return;
-  if (message.event == 0) {
-    const msg = message.data.msg;
+  const msg = message.data.msg;
 
-    const args = msg.split(" ");
-    const commandName = args.shift();
-    
-    if (commandName == "!say"){
-      connection.sendMessage(`${message.data.nickname} your said: ${args.join(" ")}`);
-    }
+  const args = msg.split(" ");
+  const commandName = args.shift();
+  
+  if (commandName == "!say"){
+    connection.sendMessage(`${message.data.nickname} your said: ${args.join(" ")}`);
   }
 })
 ```
@@ -102,6 +111,7 @@ More commands
 
     connection.banUser(context.channel_id, target, reason).then((ban) => {
       // the banUser function bans an user and it returns a promise with the banned user and the channel where he got banned 
+      // same for muteUser and pardonUser
       connection.sendMessage(`${ban.target.nickname} was banned, reason: ${reason}`);
     });
   }
