@@ -96,7 +96,7 @@ client.on("chat", async (message, context, connection, self) => {
   const commandName = args.shift();
   
   if (commandName == "!say"){
-    connection.sendMessage(`${message.data.nickname} your said: ${args.join(" ")}`);
+    connection.sendMessage(`${message.data.nickname} you said: ${args.join(" ")}`);
   }
 })
 ```
